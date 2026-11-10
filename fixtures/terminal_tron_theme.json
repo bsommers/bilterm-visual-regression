@@ -1,0 +1,32 @@
+{
+  "answers": {
+    "command_palette": {
+      "top": 0.28,
+      "left": 0.26,
+      "bottom": 0.52,
+      "right": 0.74
+    },
+    "active_tab": {
+      "choice": "terminal",
+      "confidence": 0.98
+    },
+    "modal_visible": {
+      "probability": 0.01,
+      "confidence": 0.99
+    },
+    "theme": {
+      "choice": "tron",
+      "confidence": 0.99,
+      "probabilities": {
+        "tron": 0.99,
+        "dark": 0.01,
+        "classic": 0.00,
+        "light": 0.00
+      }
+    },
+    "split_layout": {
+      "choice": "single",
+      "confidence": 0.97
+    }
+  }
+}

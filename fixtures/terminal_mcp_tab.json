@@ -1,0 +1,31 @@
+{
+  "answers": {
+    "command_palette": {
+      "top": 0.28,
+      "left": 0.26,
+      "bottom": 0.52,
+      "right": 0.74
+    },
+    "active_tab": {
+      "choice": "mcp_console",
+      "confidence": 0.97,
+      "probabilities": {
+        "mcp_console": 0.97,
+        "terminal": 0.02,
+        "settings": 0.01
+      }
+    },
+    "modal_visible": {
+      "probability": 0.04,
+      "confidence": 0.98
+    },
+    "theme": {
+      "choice": "dark",
+      "confidence": 0.95
+    },
+    "split_layout": {
+      "choice": "single",
+      "confidence": 0.97
+    }
+  }
+}
