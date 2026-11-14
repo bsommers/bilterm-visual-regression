@@ -55,7 +55,7 @@ Instead of matching pixel hashes, `bilterm-visual-regression` sends rendered fra
 | Real bilterm frames (8 curated, from `design_preview`) | Done, deterministic |
 | Assertions, runner, CLI against those frames | Done (mock Jev) |
 | Negative cases and pixel-level label checks | Done |
-| **Live Jev calls** | **Not yet run.** Mock answers are idealised expectations, not model recordings |
+| Live Jev run (8 frames x 3) | Done. layout, style and drawer 100%; **theme unreliable on nord (4/15)**; status bar box coarse |
 
 Read [`docs/REPORT.md`](docs/REPORT.md) for the use case, benefits, limits and roadmap.
 
@@ -73,7 +73,10 @@ bilterm-visual-regression/
 │   ├── assertions.py         # region, docked, choice, noul assertions
 │   ├── models.py             # BoundingBox, ChoiceResult, NoulResult
 │   └── cli.py                # bilterm-vr
+├── fixtures/live/            # recorded real Jev responses (3 runs x 8 frames) + baseline-criteria-v1/
+├── scripts/live_check.py     # live run + comparison
 ├── tests/test_visual_regression.py
+├── tests/test_live_recordings.py  # replays recorded Jev responses, pins measured accuracy
 └── docs/REPORT.md
 ```
 
@@ -81,7 +84,7 @@ bilterm-visual-regression/
 
 ```bash
 pip install -e '.[dev]'
-pytest -v                      # offline, mock Jev, no API key needed
+pytest -v                      # offline, 89 tests, no API key needed
 ```
 
 Refresh the frames from a bilterm checkout (needs a Rust toolchain; bilterm is not modified):
@@ -106,7 +109,7 @@ export TYPESAFE_API_KEY="..."
 bilterm-vr path/to/frame.png --verify-drawer hidden     # no --mock: sends header TypeSafe-Danger-Zone-Images: true
 ```
 
-The client posts to `/v1/ask`; a sibling spec names `/v1/systemone`. Neither has been exercised against the live service, so confirm the endpoint and payload with TypeSafe first.
+The client posts to `/v1/systemone` following TypeSafe's published `openapi.json`. `scripts/live_check.py --runs 3` reproduces the measurements in [`docs/REPORT.md`](docs/REPORT.md); recorded responses live in `fixtures/live/`.
 
 ## 7. Relationship to bilterm
 
