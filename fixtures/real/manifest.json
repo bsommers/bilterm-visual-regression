@@ -1,0 +1,75 @@
+{
+  "source": "bilterm examples/design_preview.rs (GuiWorkspaceRenderer, headless)",
+  "bilterm_commit": "d424638",
+  "frame_size": [
+    880,
+    544
+  ],
+  "note": "<frame>.json files are idealised expected Jev answers derived from ground truth, not live model recordings.",
+  "frames": {
+    "classic__nord__single": {
+      "style": "classic",
+      "theme": "nord",
+      "scene": "single",
+      "layout": "single_pane",
+      "drawer_visible": false,
+      "pixel_sha256": "c0d60ec30fb6a99c189ff3639cdd7d1e159135140d8ace6bf18bcc78735684f7"
+    },
+    "classic__nord__split": {
+      "style": "classic",
+      "theme": "nord",
+      "scene": "split",
+      "layout": "side_by_side",
+      "drawer_visible": false,
+      "pixel_sha256": "265e6ddedeca4b3f2cdb745f46a735e4d2900b03e012267ab7c818e1ed46316e"
+    },
+    "classic__nord__drawer": {
+      "style": "classic",
+      "theme": "nord",
+      "scene": "drawer",
+      "layout": "side_by_side",
+      "drawer_visible": true,
+      "pixel_sha256": "dbf3a24bedb60aa02f66b386eb358ed3ea3bd1b1b3078683a916e9ee784f38ba"
+    },
+    "classic__tron-grid__single": {
+      "style": "classic",
+      "theme": "tron_grid",
+      "scene": "single",
+      "layout": "single_pane",
+      "drawer_visible": false,
+      "pixel_sha256": "f5870faa7543a63d608ca7a289fc4ac5946f9e2ef4e635494115251653e0aae6"
+    },
+    "classic__tron-grid__drawer": {
+      "style": "classic",
+      "theme": "tron_grid",
+      "scene": "drawer",
+      "layout": "side_by_side",
+      "drawer_visible": true,
+      "pixel_sha256": "9e6c5f4260335065aff31791e9facd724beee12cef4706b0719880efde114737"
+    },
+    "modern__nord__split": {
+      "style": "modern",
+      "theme": "nord",
+      "scene": "split",
+      "layout": "side_by_side",
+      "drawer_visible": false,
+      "pixel_sha256": "d326072fa2b5b3b81f724a65c2abbb2b1953b35d49c705e81a1a2856c96c3400"
+    },
+    "modern__nord__drawer": {
+      "style": "modern",
+      "theme": "nord",
+      "scene": "drawer",
+      "layout": "side_by_side",
+      "drawer_visible": true,
+      "pixel_sha256": "04875d7f22c012cd596467187422a5e8df484b9d384987b0baf2bf1b5749b17c"
+    },
+    "modern__tron-grid__split": {
+      "style": "modern",
+      "theme": "tron_grid",
+      "scene": "split",
+      "layout": "side_by_side",
+      "drawer_visible": false,
+      "pixel_sha256": "adc2c10d0461b275a56a395508d46493e99e363aa4adb26b5a0ea72a26479947"
+    }
+  }
+}

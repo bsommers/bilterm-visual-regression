@@ -10,36 +10,52 @@ from .models import VisualInspectionResult
 from .client import BaseTypeSafeClient, TypeSafeClient, MockTypeSafeClient
 from .assertions import (
     assert_element_in_region,
-    assert_element_centered_horizontally,
-    assert_active_tab,
-    assert_modal_state,
+    assert_element_docked,
+    assert_choice,
+    assert_noul_state,
     Region,
 )
 
 
 DEFAULT_TERMINAL_QUESTIONS = {
-    "command_palette": {
+    "session_drawer": {
         "type": "box",
-        "instructions": "the command input window in `terminal_frame`",
+        "instructions": (
+            "the sessions drawer in `terminal_frame`: a full-height side panel listing "
+            "SESSION entries. Answer an empty box if there is no such panel"
+        ),
     },
-    "active_tab": {
-        "type": "choice",
-        "options": ["terminal", "mcp_console", "settings"],
-        "instructions": "which tab header is currently highlighted?",
+    "status_bar": {
+        "type": "box",
+        "instructions": "the status bar: the single-row strip along the bottom edge of `terminal_frame`",
     },
-    "modal_visible": {
+    "drawer_visible": {
         "type": "noul",
-        "instructions": "is there an overlay or modal dialog visible?",
+        "instructions": "is the sessions drawer (a side panel listing SESSION entries) visible in `terminal_frame`?",
+    },
+    "layout": {
+        "type": "choice",
+        "options": ["single_pane", "side_by_side", "stacked"],
+        "instructions": (
+            "how are the terminal panes arranged? Ignore the sessions drawer; count only panes "
+            "that contain shell output"
+        ),
     },
     "theme": {
         "type": "choice",
-        "options": ["tron", "classic", "dark", "light"],
-        "instructions": "which color theme or palette is rendered in `terminal_frame`?",
+        "options": ["nord", "tron_grid"],
+        "instructions": (
+            "which palette is rendered? nord = slate grey-blue background; "
+            "tron_grid = near-black navy background with cyan and orange accents"
+        ),
     },
-    "split_layout": {
+    "style": {
         "type": "choice",
-        "options": ["single", "horizontal_split", "vertical_split"],
-        "instructions": "what is the terminal pane layout?",
+        "options": ["classic", "modern"],
+        "instructions": (
+            "which visual style? classic = bracketed pane titles like `[1] PANE #1` and a "
+            "`3270-OIA` status bar; modern = three-dot window header and a flat status bar"
+        ),
     },
 }
 
@@ -62,6 +78,8 @@ class VisualRegressionRunner:
                 f_dir = Path(fixtures_dir)
                 if f_dir.exists():
                     for json_file in f_dir.glob("*.json"):
+                        if json_file.stem == "manifest":
+                            continue
                         try:
                             with open(json_file, "r") as f:
                                 fixtures_map[json_file.stem] = json.load(f)
@@ -79,50 +97,50 @@ class VisualRegressionRunner:
         qs = questions or DEFAULT_TERMINAL_QUESTIONS
         return self.client.inspect_frame(image_path, qs)
 
-    def verify_modal_dialog_centered(
+    def verify_drawer(
         self,
         image_path: Path | str,
         expected_visible: bool = True,
     ) -> VisualInspectionResult:
-        result = self.run_check(
-            image_path,
-            questions={
-                "command_palette": DEFAULT_TERMINAL_QUESTIONS["command_palette"],
-                "modal_visible": DEFAULT_TERMINAL_QUESTIONS["modal_visible"],
-            },
-        )
-        modal_res = result.get_noul("modal_visible")
-        assert modal_res is not None, "Missing modal_visible question in response"
-        assert_modal_state(modal_res, expected_visible)
+        """Assert the sessions drawer is present (docked on the left) or absent."""
+        qs = {k: DEFAULT_TERMINAL_QUESTIONS[k] for k in ("drawer_visible", "session_drawer")}
+        result = self.run_check(image_path, questions=qs)
+        res = result.get_noul("drawer_visible")
+        assert res is not None, "Missing drawer_visible in response"
+        assert_noul_state(res, expected_visible, "sessions drawer")
 
         if expected_visible:
-            box = result.get_box("command_palette")
-            assert box is not None, "Expected command_palette box when modal is visible"
-            assert_element_centered_horizontally(box)
-            assert_element_in_region(box, Region.CENTER)
-
+            box = result.get_box("session_drawer")
+            assert box is not None, "Expected session_drawer box when drawer is visible"
+            assert_element_in_region(box, Region.LEFT_HALF)
+            assert_element_docked(box, edge="left", max_extent=0.45)
         return result
 
-    def verify_active_tab_and_theme(
+    def verify_status_bar(self, image_path: Path | str) -> VisualInspectionResult:
+        result = self.run_check(image_path, questions={"status_bar": DEFAULT_TERMINAL_QUESTIONS["status_bar"]})
+        box = result.get_box("status_bar")
+        assert box is not None, "Missing status_bar in response"
+        assert_element_in_region(box, Region.STATUS_BAR)
+        assert_element_docked(box, edge="bottom", max_extent=0.15)
+        return result
+
+    def verify_appearance(
         self,
         image_path: Path | str,
-        expected_tab: str,
-        expected_theme: Optional[str] = None,
+        layout: Optional[str] = None,
+        theme: Optional[str] = None,
+        style: Optional[str] = None,
     ) -> VisualInspectionResult:
-        qs = {"active_tab": DEFAULT_TERMINAL_QUESTIONS["active_tab"]}
-        if expected_theme:
-            qs["theme"] = DEFAULT_TERMINAL_QUESTIONS["theme"]
-
+        """Assert any combination of pane layout, theme palette and visual style."""
+        expected = {"layout": layout, "theme": theme, "style": style}
+        qs = {k: DEFAULT_TERMINAL_QUESTIONS[k] for k, v in expected.items() if v is not None}
+        if not qs:
+            raise ValueError("verify_appearance needs at least one of layout/theme/style")
         result = self.run_check(image_path, questions=qs)
-        tab_res = result.get_choice("active_tab")
-        assert tab_res is not None, "Missing active_tab in response"
-        assert_active_tab(tab_res, expected_tab)
-
-        if expected_theme:
-            theme_res = result.get_choice("theme")
-            assert theme_res is not None, "Missing theme in response"
-            assert (
-                theme_res.choice == expected_theme
-            ), f"Expected theme '{expected_theme}', got '{theme_res.choice}'"
-
+        for name, want in expected.items():
+            if want is None:
+                continue
+            got = result.get_choice(name)
+            assert got is not None, f"Missing {name} in response"
+            assert_choice(got, want, name)
         return result

@@ -1,20 +1,24 @@
 """Unit and integration tests for bilterm visual regression runner and assertions."""
 
+import json
 import pytest
 from pathlib import Path
 from bilterm_vr.models import BoundingBox, ChoiceResult, NoulResult
 from bilterm_vr.assertions import (
     assert_element_in_region,
     assert_element_centered_horizontally,
+    assert_element_docked,
     assert_active_tab,
     assert_modal_state,
+    assert_choice,
+    assert_noul_state,
     Region,
 )
 from bilterm_vr.client import MockTypeSafeClient
 from bilterm_vr.runner import VisualRegressionRunner, DEFAULT_TERMINAL_QUESTIONS
 
 
-FIXTURES_DIR = Path(__file__).parent.parent / "fixtures"
+FIXTURES_DIR = Path(__file__).parent.parent / "fixtures" / "real"
 
 
 class TestModelsAndPrimitives:
@@ -55,86 +59,201 @@ class TestModelsAndPrimitives:
 
 class TestAssertions:
     def test_centered_element_passes(self):
-        # Spec bounds: 0.20 < left < 0.35, 0.65 < right < 0.80
         box = BoundingBox(top=0.28, left=0.26, bottom=0.52, right=0.74)
         assert_element_centered_horizontally(box)
         assert_element_in_region(box, Region.CENTER)
 
     def test_centered_element_fails_if_skewed(self):
-        skewed_box = BoundingBox(top=0.10, left=0.05, bottom=0.40, right=0.45)
         with pytest.raises(AssertionError):
-            assert_element_centered_horizontally(skewed_box)
+            assert_element_centered_horizontally(BoundingBox(top=0.1, left=0.05, bottom=0.4, right=0.45))
 
     def test_active_tab_assertion(self):
-        choice = ChoiceResult(choice="terminal")
-        assert_active_tab(choice, "terminal")
-
+        assert_active_tab(ChoiceResult(choice="terminal"), "terminal")
         with pytest.raises(AssertionError):
-            assert_active_tab(choice, "settings")
+            assert_active_tab(ChoiceResult(choice="terminal"), "settings")
 
     def test_modal_state_assertion(self):
-        noul_visible = NoulResult(probability=0.94)
-        noul_hidden = NoulResult(probability=0.05)
-
-        assert_modal_state(noul_visible, expected_visible=True)
-        assert_modal_state(noul_hidden, expected_visible=False)
-
+        assert_modal_state(NoulResult(probability=0.94), expected_visible=True)
+        assert_modal_state(NoulResult(probability=0.05), expected_visible=False)
         with pytest.raises(AssertionError):
-            assert_modal_state(noul_visible, expected_visible=False)
+            assert_modal_state(NoulResult(probability=0.94), expected_visible=False)
 
-        with pytest.raises(AssertionError):
-            assert_modal_state(noul_hidden, expected_visible=True)
+    def test_noul_state_accepts_bool_float_and_result(self):
+        assert_noul_state(True, True)
+        assert_noul_state(0.1, False, "drawer")
+        with pytest.raises(AssertionError, match="drawer"):
+            assert_noul_state(NoulResult(0.5), True, "drawer")  # uncertain is neither true nor false
 
+    def test_choice_assertion(self):
+        assert_choice(ChoiceResult(choice="nord"), "nord", "theme")
+        assert_choice("nord", "nord")
+        with pytest.raises(AssertionError, match="theme mismatch"):
+            assert_choice(ChoiceResult(choice="nord"), "tron_grid", "theme")
 
-class TestVisualRegressionFixtures:
-    @pytest.fixture
-    def runner(self):
-        return VisualRegressionRunner(use_mock=True, fixtures_dir=FIXTURES_DIR)
+    @pytest.mark.parametrize(
+        "edge,box",
+        [
+            ("left", BoundingBox(0.0, 0.0, 1.0, 0.31)),
+            ("right", BoundingBox(0.0, 0.7, 1.0, 1.0)),
+            ("top", BoundingBox(0.0, 0.0, 0.1, 1.0)),
+            ("bottom", BoundingBox(0.97, 0.0, 1.0, 1.0)),
+        ],
+    )
+    def test_docked_passes(self, edge, box):
+        assert_element_docked(box, edge, max_extent=0.45)
 
-    def test_normal_terminal_frame(self, runner):
-        img_path = FIXTURES_DIR / "terminal_normal.png"
-        res = runner.run_check(img_path)
-
-        assert res.get_choice("active_tab").choice == "terminal"
-        assert res.get_choice("theme").choice == "dark"
-        assert res.get_noul("modal_visible").is_false is True
-
-    def test_command_palette_modal_verification(self, runner):
-        img_path = FIXTURES_DIR / "terminal_modal_palette.png"
-        res = runner.verify_modal_dialog_centered(img_path, expected_visible=True)
-
-        assert res.get_noul("modal_visible").is_true is True
-        box = res.get_box("command_palette")
-        assert box is not None
-        assert 0.20 < box.left < 0.35
-        assert 0.65 < box.right < 0.80
-
-    def test_settings_tab_switch(self, runner):
-        img_path = FIXTURES_DIR / "terminal_settings_tab.png"
-        res = runner.verify_active_tab_and_theme(img_path, expected_tab="settings")
-        assert res.get_choice("active_tab").choice == "settings"
-
-    def test_mcp_console_tab_switch(self, runner):
-        img_path = FIXTURES_DIR / "terminal_mcp_tab.png"
-        res = runner.verify_active_tab_and_theme(img_path, expected_tab="mcp_console")
-        assert res.get_choice("active_tab").choice == "mcp_console"
-
-    def test_tron_theme_classification(self, runner):
-        img_path = FIXTURES_DIR / "terminal_tron_theme.png"
-        res = runner.verify_active_tab_and_theme(
-            img_path, expected_tab="terminal", expected_theme="tron"
-        )
-        assert res.get_choice("theme").choice == "tron"
+    def test_docked_fails_when_floating_or_too_large(self):
+        with pytest.raises(AssertionError, match="not docked"):
+            assert_element_docked(BoundingBox(0.0, 0.2, 1.0, 0.5), "left", 0.45)
+        with pytest.raises(AssertionError, match="extent"):
+            assert_element_docked(BoundingBox(0.0, 0.0, 1.0, 0.9), "left", 0.45)
+        with pytest.raises(AssertionError, match="extent"):  # empty box = absent element
+            assert_element_docked(BoundingBox(0.0, 0.0, 0.0, 0.0), "left", 0.45)
+        with pytest.raises(ValueError):
+            assert_element_docked(BoundingBox(0, 0, 1, 1), "middle", 0.5)
 
 
-class TestMockClientHeuristicFallback:
-    def test_fallback_without_fixture_files(self):
+MANIFEST = json.loads((FIXTURES_DIR / "manifest.json").read_text())
+FRAMES = MANIFEST["frames"]
+
+
+@pytest.fixture(scope="module")
+def runner():
+    return VisualRegressionRunner(use_mock=True, fixtures_dir=FIXTURES_DIR)
+
+
+def png(name: str) -> Path:
+    return FIXTURES_DIR / f"{name}.png"
+
+
+class TestRealFrames:
+    """Mock-Jev checks over real bilterm frames, parametrised from the manifest ground truth."""
+
+    @pytest.mark.parametrize("name", FRAMES)
+    def test_appearance_matches_ground_truth(self, runner, name):
+        t = FRAMES[name]
+        runner.verify_appearance(png(name), layout=t["layout"], theme=t["theme"], style=t["style"])
+
+    @pytest.mark.parametrize("name", FRAMES)
+    def test_drawer_state_matches_ground_truth(self, runner, name):
+        runner.verify_drawer(png(name), expected_visible=FRAMES[name]["drawer_visible"])
+
+    @pytest.mark.parametrize("name", FRAMES)
+    def test_status_bar_docked_at_bottom(self, runner, name):
+        runner.verify_status_bar(png(name))
+
+    def test_drawer_box_is_left_docked(self, runner):
+        res = runner.verify_drawer(png("classic__nord__drawer"), expected_visible=True)
+        box = res.get_box("session_drawer")
+        assert box.left == pytest.approx(0.0, abs=0.03)
+        assert 0.25 < box.right < 0.40
+
+
+class TestNegativeCases:
+    """The harness must fail loudly when a frame does not match the expectation."""
+
+    def test_drawer_expected_but_absent(self, runner):
+        with pytest.raises(AssertionError, match="sessions drawer"):
+            runner.verify_drawer(png("classic__nord__split"), expected_visible=True)
+
+    def test_drawer_unexpectedly_present(self, runner):
+        with pytest.raises(AssertionError, match="sessions drawer"):
+            runner.verify_drawer(png("classic__nord__drawer"), expected_visible=False)
+
+    def test_wrong_theme(self, runner):
+        with pytest.raises(AssertionError, match="theme mismatch"):
+            runner.verify_appearance(png("classic__nord__single"), theme="tron_grid")
+
+    def test_wrong_style(self, runner):
+        with pytest.raises(AssertionError, match="style mismatch"):
+            runner.verify_appearance(png("modern__nord__split"), style="classic")
+
+    def test_wrong_layout(self, runner):
+        with pytest.raises(AssertionError, match="layout mismatch"):
+            runner.verify_appearance(png("classic__nord__single"), layout="side_by_side")
+
+    def test_appearance_requires_an_expectation(self, runner):
+        with pytest.raises(ValueError):
+            runner.verify_appearance(png("classic__nord__single"))
+
+    def test_misplaced_drawer_box_is_caught(self):
         client = MockTypeSafeClient()
-        # Querying an unrecorded frame path
-        res = client.inspect_frame(
-            "unknown_frame_modal.png",
-            questions=DEFAULT_TERMINAL_QUESTIONS,
-        )
-        assert res.get_noul("modal_visible").is_true is True
-        box = res.get_box("command_palette")
-        assert box.center_x == pytest.approx(0.50)
+        resp = json.loads((FIXTURES_DIR / "classic__nord__drawer.json").read_text())
+        resp["answers"]["session_drawer"] = {"top": 0.0, "left": 0.55, "bottom": 1.0, "right": 0.95}
+        client.register_fixture("classic__nord__drawer", resp)
+        with pytest.raises(AssertionError):
+            VisualRegressionRunner(client=client).verify_drawer(png("classic__nord__drawer"))
+
+
+class TestFrameIntegrity:
+    """Pixel-level checks (no model): the labels describe what is really in the PNGs."""
+
+    @pytest.mark.parametrize("name", FRAMES)
+    def test_png_matches_manifest(self, name):
+        import hashlib
+        from PIL import Image
+
+        im = Image.open(png(name)).convert("RGB")
+        assert list(im.size) == MANIFEST["frame_size"]
+        assert hashlib.sha256(im.tobytes()).hexdigest() == FRAMES[name]["pixel_sha256"]
+        assert len(im.getcolors(maxcolors=1_000_000)) > 10, "frame looks blank"
+
+    def test_every_png_has_manifest_entry(self):
+        assert {p.stem for p in FIXTURES_DIR.glob("*.png")} == set(FRAMES)
+
+    def test_theme_labels_agree_with_pixels(self):
+        from PIL import Image, ImageStat
+
+        def brightness(name):
+            return sum(ImageStat.Stat(Image.open(png(name)).convert("L")).mean)
+
+        for style in ("classic", "modern"):
+            nord = [n for n, t in FRAMES.items() if t["theme"] == "nord" and t["style"] == style]
+            tron = [n for n, t in FRAMES.items() if t["theme"] == "tron_grid" and t["style"] == style]
+            assert min(map(brightness, nord)) > max(map(brightness, tron))
+
+    def test_drawer_labels_agree_with_pixels(self):
+        from PIL import Image, ImageChops
+
+        def left_strip(name):
+            im = Image.open(png(name)).convert("RGB")
+            return im.crop((0, 0, int(im.width * 0.28), im.height))
+
+        # Same style+theme: the drawer frame's left strip differs from the plain split frame's.
+        diff = ImageChops.difference(left_strip("classic__nord__drawer"), left_strip("classic__nord__split"))
+        assert diff.getbbox() is not None
+
+
+class TestCaptureRoundTrip:
+    def test_convert_regenerates_fixtures(self, tmp_path):
+        from PIL import Image
+        from bilterm_vr.capture import convert
+        from bilterm_vr.scenes import CURATED_FRAMES
+
+        ppm_dir = tmp_path / "ppm"
+        ppm_dir.mkdir()
+        for n in CURATED_FRAMES:
+            Image.open(png(n)).convert("RGB").save(ppm_dir / f"{n}.ppm")
+        out = tmp_path / "out"
+        manifest = convert(ppm_dir, out, bilterm_commit="deadbee")
+        assert manifest["bilterm_commit"] == "deadbee"
+        assert manifest["frames"] == {k: v for k, v in FRAMES.items()}
+        for n in CURATED_FRAMES:
+            assert json.loads((out / f"{n}.json").read_text()) == json.loads((FIXTURES_DIR / f"{n}.json").read_text())
+
+    def test_missing_frame_is_an_error(self, tmp_path):
+        from bilterm_vr.capture import convert
+
+        with pytest.raises(FileNotFoundError):
+            convert(tmp_path, tmp_path / "out")
+
+
+class TestMockClientFallback:
+    def test_unrecorded_frame_derives_from_name(self):
+        res = MockTypeSafeClient().inspect_frame("modern__nord__drawer.png", DEFAULT_TERMINAL_QUESTIONS)
+        assert res.get_noul("drawer_visible").is_true
+        assert res.get_choice("style").choice == "modern"
+
+    def test_unknown_name_is_an_error_not_a_guess(self):
+        with pytest.raises(KeyError):
+            MockTypeSafeClient().inspect_frame("whatever.png", DEFAULT_TERMINAL_QUESTIONS)

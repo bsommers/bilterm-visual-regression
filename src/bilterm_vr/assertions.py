@@ -90,6 +90,47 @@ def assert_element_centered_horizontally(
     )
 
 
+def assert_element_docked(box: BoundingBox, edge: str, max_extent: float, tol: float = 0.03) -> None:
+    """Assert a box hugs a frame edge ('left'|'right'|'top'|'bottom') and spans at most ``max_extent`` inward."""
+    if edge == "left":
+        gap, extent = box.left, box.right
+    elif edge == "right":
+        gap, extent = 1.0 - box.right, 1.0 - box.left
+    elif edge == "top":
+        gap, extent = box.top, box.bottom
+    elif edge == "bottom":
+        gap, extent = 1.0 - box.bottom, 1.0 - box.top
+    else:
+        raise ValueError(f"Unknown edge: {edge}")
+    assert gap <= tol, f"Element not docked to {edge} edge: gap={gap:.3f} > {tol}"
+    assert 0.0 < extent <= max_extent + tol, (
+        f"Element extent from {edge} edge is {extent:.3f}, expected (0, {max_extent}]"
+    )
+
+
+def assert_choice(choice_result: Union[ChoiceResult, str], expected: str, name: str = "choice") -> None:
+    """Assert a Jev `choice` answer equals the expected option."""
+    actual = choice_result.choice if isinstance(choice_result, ChoiceResult) else choice_result
+    assert actual == expected, (
+        f"{name} mismatch: expected '{expected}', got '{actual}' "
+        f"(confidence: {getattr(choice_result, 'confidence', 'N/A')})"
+    )
+
+
+def assert_noul_state(noul_result: Union[NoulResult, float, bool], expected: bool, label: str = "element") -> None:
+    """Assert a calibrated Noul probability is true (>= 0.70) or false (<= 0.30)."""
+    if isinstance(noul_result, bool):
+        prob = 1.0 if noul_result else 0.0
+    elif isinstance(noul_result, NoulResult):
+        prob = noul_result.probability
+    else:
+        prob = float(noul_result)
+    if expected:
+        assert prob >= 0.70, f"Expected {label} visible (prob >= 0.70), but Jev reported probability={prob:.3f}"
+    else:
+        assert prob <= 0.30, f"Expected {label} hidden (prob <= 0.30), but Jev reported probability={prob:.3f}"
+
+
 def assert_active_tab(choice_result: Union[ChoiceResult, str], expected: str) -> None:
     """Assert active tab matches expected selection without fragile ANSI/pixel checks."""
     actual = choice_result.choice if isinstance(choice_result, ChoiceResult) else choice_result

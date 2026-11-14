@@ -20,24 +20,14 @@ def main() -> None:
     )
     parser.add_argument(
         "--fixtures-dir",
-        default="fixtures",
+        default="fixtures/real",
         help="Directory containing fixture JSON responses",
     )
-    parser.add_argument(
-        "--verify-modal",
-        action="store_true",
-        help="Assert modal dialog is visible and centered",
-    )
-    parser.add_argument(
-        "--verify-tab",
-        choices=["terminal", "mcp_console", "settings"],
-        help="Assert expected active tab",
-    )
-    parser.add_argument(
-        "--verify-theme",
-        choices=["tron", "classic", "dark", "light"],
-        help="Assert expected theme",
-    )
+    parser.add_argument("--verify-drawer", choices=["visible", "hidden"], help="Assert sessions drawer state")
+    parser.add_argument("--verify-status-bar", action="store_true", help="Assert status bar is docked at the bottom")
+    parser.add_argument("--verify-layout", choices=["single_pane", "side_by_side", "stacked"])
+    parser.add_argument("--verify-theme", choices=["nord", "tron_grid"])
+    parser.add_argument("--verify-style", choices=["classic", "modern"])
     parser.add_argument(
         "--json",
         action="store_true",
@@ -56,16 +46,26 @@ def main() -> None:
     )
 
     try:
-        if args.verify_modal:
-            result = runner.verify_modal_dialog_centered(image_path, expected_visible=True)
-            print("✓ Modal dialog verified: centered within tolerance.")
-        elif args.verify_tab or args.verify_theme:
-            result = runner.verify_active_tab_and_theme(
-                image_path,
-                expected_tab=args.verify_tab or "terminal",
-                expected_theme=args.verify_theme,
+        checks = []
+        if args.verify_drawer:
+            result = runner.verify_drawer(image_path, args.verify_drawer == "visible")
+            checks.append(f"drawer={args.verify_drawer}")
+        if args.verify_status_bar:
+            result = runner.verify_status_bar(image_path)
+            checks.append("status_bar=docked")
+        if args.verify_layout or args.verify_theme or args.verify_style:
+            result = runner.verify_appearance(
+                image_path, args.verify_layout, args.verify_theme, args.verify_style
             )
-            print(f"✓ Tab/Theme verified: tab={args.verify_tab}, theme={args.verify_theme}")
+            checks.append(
+                ", ".join(
+                    f"{k}={v}"
+                    for k, v in (("layout", args.verify_layout), ("theme", args.verify_theme), ("style", args.verify_style))
+                    if v
+                )
+            )
+        if checks:
+            print("✓ Verified: " + "; ".join(checks))
         else:
             result = runner.run_check(image_path)
             print(f"=== Visual Inspection for {image_path.name} ===")

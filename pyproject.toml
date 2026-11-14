@@ -8,9 +8,9 @@ version = "0.1.0"
 description = "Semantic visual regression testing and TUI element localization using TypeSafe Jev System One"
 readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "MIT"}
+license = {text = "Apache-2.0"}
 authors = [
-    {name = "Bill", email = "bill@example.com"}
+    {name = "Bill Sommers"}
 ]
 dependencies = [
     "httpx>=0.25.0",

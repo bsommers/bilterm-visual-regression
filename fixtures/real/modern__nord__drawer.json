@@ -1,0 +1,45 @@
+{
+  "answers": {
+    "layout": {
+      "choice": "side_by_side",
+      "confidence": 0.97,
+      "probabilities": {
+        "single_pane": 0.015,
+        "side_by_side": 0.97,
+        "stacked": 0.015
+      }
+    },
+    "theme": {
+      "choice": "nord",
+      "confidence": 0.97,
+      "probabilities": {
+        "nord": 0.97,
+        "tron_grid": 0.03
+      }
+    },
+    "style": {
+      "choice": "modern",
+      "confidence": 0.97,
+      "probabilities": {
+        "classic": 0.03,
+        "modern": 0.97
+      }
+    },
+    "drawer_visible": {
+      "probability": 0.96,
+      "confidence": 0.98
+    },
+    "status_bar": {
+      "top": 0.9706,
+      "left": 0.0,
+      "bottom": 1.0,
+      "right": 1.0
+    },
+    "session_drawer": {
+      "top": 0.0,
+      "left": 0.0,
+      "bottom": 1.0,
+      "right": 0.307
+    }
+  }
+}

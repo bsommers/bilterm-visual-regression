@@ -166,82 +166,13 @@ class MockTypeSafeClient(BaseTypeSafeClient):
     def _generate_heuristic_response(
         self, frame_name: str, questions: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Generate a realistic mock response matching bilterm visual features."""
-        answers: Dict[str, Any] = {}
-        for q_name, q_spec in questions.items():
-            q_type = q_spec.get("type")
-            if q_type == "box":
-                if "palette" in q_name or "command" in q_name or "modal" in q_name:
-                    # Centered floating palette matching spec bounds:
-                    # 0.20 < left < 0.35, 0.65 < right < 0.80
-                    answers[q_name] = {
-                        "top": 0.28,
-                        "left": 0.26,
-                        "bottom": 0.52,
-                        "right": 0.74,
-                    }
-                elif "status" in q_name:
-                    answers[q_name] = {
-                        "top": 0.94,
-                        "left": 0.0,
-                        "bottom": 1.0,
-                        "right": 1.0,
-                    }
-                elif "tab" in q_name or "header" in q_name:
-                    answers[q_name] = {
-                        "top": 0.0,
-                        "left": 0.0,
-                        "bottom": 0.08,
-                        "right": 1.0,
-                    }
-                else:
-                    answers[q_name] = {
-                        "top": 0.1,
-                        "left": 0.1,
-                        "bottom": 0.9,
-                        "right": 0.9,
-                    }
-            elif q_type == "choice":
-                opts = q_spec.get("options", [])
-                if "tab" in q_name:
-                    if "settings" in frame_name:
-                        choice = "settings"
-                    elif "mcp" in frame_name:
-                        choice = "mcp_console"
-                    else:
-                        choice = "terminal"
-                elif "theme" in q_name:
-                    if "tron" in frame_name:
-                        choice = "tron"
-                    elif "classic" in frame_name:
-                        choice = "classic"
-                    elif "light" in frame_name:
-                        choice = "light"
-                    else:
-                        choice = "dark"
-                elif "split" in q_name or "layout" in q_name:
-                    if "split_v" in frame_name or "vertical" in frame_name:
-                        choice = "vertical_split"
-                    elif "split_h" in frame_name or "horizontal" in frame_name:
-                        choice = "horizontal_split"
-                    else:
-                        choice = "single"
-                else:
-                    choice = opts[0] if opts else "default"
+        """Fallback for unrecorded frames: derive answers from a ``<style>__<theme>__<scene>`` name."""
+        from .scenes import parse_frame_name
 
-                answers[q_name] = {
-                    "choice": choice,
-                    "confidence": 0.96,
-                    "probabilities": {opt: (0.96 if opt == choice else 0.02) for opt in opts},
-                }
-            elif q_type == "noul":
-                if "modal" in q_name or "dialog" in q_name or "palette" in q_name:
-                    is_visible = "modal" in frame_name or "palette" in frame_name
-                    prob = 0.95 if is_visible else 0.04
-                else:
-                    prob = 0.92
-                answers[q_name] = {
-                    "probability": prob,
-                    "confidence": 0.98,
-                }
-        return {"answers": answers}
+        try:
+            return parse_frame_name(frame_name).expected_answers()
+        except ValueError:
+            raise KeyError(
+                f"No recorded fixture for frame '{frame_name}' and its name is not "
+                "'<style>__<theme>__<scene>'; register one with register_fixture()."
+            ) from None

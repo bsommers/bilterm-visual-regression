@@ -2,8 +2,8 @@
 
 > Semantic visual terminal regression testing and component locator harness powered by **TypeSafe Jev System One** (`jev-latest`).
 
-Target Project Reference: [`/Users/bill/src/tools/bilterm`](file:///Users/bill/src/tools/bilterm)  
-Reference Spec: [`specs/bilterm-visual-regression.md`](file:///Users/bill/src/research/ai-ml/jev/specs/bilterm-visual-regression.md)
+Target project: `bilterm` (a separate repo; this harness is out-of-band and does not modify it).  
+Reference Spec: `specs/bilterm-visual-regression.md` in the `jev` research repo
 
 ---
 
@@ -16,9 +16,9 @@ In terminal emulators and GPU-accelerated TUI suites like `bilterm` (e.g. `tests
 
 ### The Jev System One Approach
 Instead of matching pixel hashes, `bilterm-visual-regression` sends rendered framebuffer snapshots to TypeSafe's Jev model with semantic questions:
-1. **`box`**: Locates floating command palettes, split pane borders, active search bars, and tabs as normalized coordinates `[0.0, 1.0]`.
-2. **`choice`**: Classifies active tab selections (`["terminal", "mcp_console", "settings"]`), theme palettes (`["tron", "classic", "dark", "light"]`), and pane layouts (`["single", "horizontal_split", "vertical_split"]`).
-3. **`noul`**: Evaluates calibrated probabilistic assertions (`modal_visible`, `cursor_blink_visible`) with canonical thresholds (`>= 0.70` for True, `<= 0.30` for False).
+1. **`box`**: Locates the sessions drawer and the status bar as normalized coordinates `[0.0, 1.0]`.
+2. **`choice`**: Classifies pane layout (`single_pane` / `side_by_side` / `stacked`), theme (`nord` / `tron_grid`) and visual style (`classic` / `modern`).
+3. **`noul`**: Evaluates calibrated probabilistic assertions (`drawer_visible`) with canonical thresholds (`>= 0.70` for True, `<= 0.30` for False).
 
 ---
 
@@ -48,142 +48,69 @@ Instead of matching pixel hashes, `bilterm-visual-regression` sends rendered fra
 
 ---
 
-## 3. Directory Layout
+## 3. Status
+
+| Area | State |
+|------|-------|
+| Real bilterm frames (8 curated, from `design_preview`) | Done, deterministic |
+| Assertions, runner, CLI against those frames | Done (mock Jev) |
+| Negative cases and pixel-level label checks | Done |
+| **Live Jev calls** | **Not yet run.** Mock answers are idealised expectations, not model recordings |
+
+Read [`docs/REPORT.md`](docs/REPORT.md) for the use case, benefits, limits and roadmap.
+
+## 4. Directory Layout
 
 ```
 bilterm-visual-regression/
-├── fixtures/                         # Synthetic terminal snapshots and recorded Jev mock fixtures
-│   ├── terminal_normal.png
-│   ├── terminal_normal.json
-│   ├── terminal_modal_palette.png
-│   ├── terminal_modal_palette.json
-│   ├── terminal_settings_tab.png
-│   ├── terminal_settings_tab.json
-│   ├── terminal_mcp_tab.png
-│   ├── terminal_mcp_tab.json
-│   ├── terminal_tron_theme.png
-│   └── terminal_tron_theme.json
-├── src/
-│   └── bilterm_vr/
-│       ├── __init__.py               # Top-level exports
-│       ├── assertions.py             # assert_element_in_region, assert_active_tab, etc.
-│       ├── cli.py                    # Standalone CLI utility
-│       ├── client.py                 # Live TypeSafeClient + MockTypeSafeClient
-│       ├── generate_fixtures.py      # Pillow-based synthetic terminal frame generator
-│       ├── models.py                 # BoundingBox, ChoiceResult, NoulResult
-│       └── runner.py                 # VisualRegressionRunner test harness
-├── tests/
-│   └── test_visual_regression.py     # Pytest suite verifying models, assertions, and fixtures
-├── pyproject.toml
-├── requirements.txt
-└── README.md
+├── fixtures/real/            # 8 real bilterm frames (<name>.png), expected answers (<name>.json), manifest.json
+├── scripts/capture_frames.sh # renders frames via bilterm's design_preview example, refreshes fixtures/real
+├── src/bilterm_vr/
+│   ├── scenes.py             # ground truth derived from <style>__<theme>__<scene> frame names
+│   ├── capture.py            # PPM -> PNG + manifest + expected answers
+│   ├── client.py             # TypeSafeClient (live) + MockTypeSafeClient
+│   ├── runner.py             # questions + verify_drawer / verify_status_bar / verify_appearance
+│   ├── assertions.py         # region, docked, choice, noul assertions
+│   ├── models.py             # BoundingBox, ChoiceResult, NoulResult
+│   └── cli.py                # bilterm-vr
+├── tests/test_visual_regression.py
+└── docs/REPORT.md
 ```
 
----
-
-## 4. Quickstart & Installation
+## 5. Quickstart
 
 ```bash
-cd /Users/bill/src/research/ai-ml/jev-usecases/bilterm-visual-regression
-
-# Install dependencies
-pip install -e .
-
-# Or using requirements.txt
-pip install -r requirements.txt
+pip install -e '.[dev]'
+pytest -v                      # offline, mock Jev, no API key needed
 ```
 
-### Running Tests (Offline / Mock Mode)
-Run the automated test suite against recorded fixtures and synthetic terminal frames:
+Refresh the frames from a bilterm checkout (needs a Rust toolchain; bilterm is not modified):
 
 ```bash
-pytest -v
+BILTERM_DIR=~/src/tools/bilterm scripts/capture_frames.sh
 ```
 
-### Running the CLI
-Inspect a rendered terminal frame:
+Inspect a frame with the CLI (mock mode):
 
 ```bash
-# Verify that a command palette modal is centered in the screen
-bilterm-vr fixtures/terminal_modal_palette.png --mock --verify-modal
+bilterm-vr fixtures/real/modern__nord__drawer.png --mock \
+  --verify-drawer visible --verify-theme nord --verify-style modern --verify-status-bar
 
-# Verify active tab selection
-bilterm-vr fixtures/terminal_settings_tab.png --mock --verify-tab settings
-
-# Run full visual inspection with JSON output
-bilterm-vr fixtures/terminal_tron_theme.png --mock --json
+bilterm-vr fixtures/real/classic__nord__split.png --mock --json   # full inspection
 ```
 
----
-
-## 5. Live TypeSafe API Integration
-
-To run against the live TypeSafe System One API:
+## 6. Live TypeSafe API
 
 ```bash
-export TYPESAFE_API_KEY="your-typesafe-api-key"
-
-# Omit --mock flag to dispatch live requests with header TypeSafe-Danger-Zone-Images: true
-bilterm-vr path/to/rendered_frame.png --verify-modal
+export TYPESAFE_API_KEY="..."
+bilterm-vr path/to/frame.png --verify-drawer hidden     # no --mock: sends header TypeSafe-Danger-Zone-Images: true
 ```
 
-### Example Live Payload
+The client posts to `/v1/ask`; a sibling spec names `/v1/systemone`. Neither has been exercised against the live service, so confirm the endpoint and payload with TypeSafe first.
 
-```json
-{
-  "model": "jev-latest",
-  "state": {
-    "terminal_frame": "frame-001"
-  },
-  "assets": {
-    "frame-001": {
-      "type": "image",
-      "part": "screen_capture",
-      "data": "data:image/png;base64,..."
-    }
-  },
-  "questions": {
-    "command_palette": {
-      "type": "box",
-      "instructions": "the command input window in `terminal_frame`"
-    },
-    "active_tab": {
-      "type": "choice",
-      "options": ["terminal", "mcp_console", "settings"],
-      "instructions": "which tab header is currently highlighted?"
-    },
-    "modal_visible": {
-      "type": "noul",
-      "instructions": "is there an overlay or modal dialog visible?"
-    }
-  }
-}
-```
+## 7. Relationship to bilterm
 
----
+Out-of-band. bilterm keeps its own exact `insta` snapshots; this repo adds a coarse semantic check that needs a network call, so it stays out of bilterm's `cargo test` and CI gates. The only coupling is bilterm's `examples/design_preview.rs`, used read-only. If a PNG-writing mode is ever upstreamed there, `capture_frames.sh` shrinks to a few lines.
 
-## 6. How to Integrate into `bilterm` (Rust / Cargo Pipeline)
-
-In `bilterm/tests/phase50_gui_render.rs`, export the rendered frame buffer to a temporary PNG and call `bilterm-vr`:
-
-```rust
-#[test]
-fn test_command_palette_modal_spatial_centering() {
-    let mut terminal = BiltermTestHarness::new_headless(1200, 800);
-    terminal.send_key_combination(KeyCode::Ctrl, 'p');
-    let frame_png_path = terminal.capture_frame_png("target/tmp_palette_frame.png");
-
-    let status = std::process::Command::new("bilterm-vr")
-        .arg(&frame_png_path)
-        .arg("--verify-modal")
-        .status()
-        .expect("Failed to execute bilterm-vr");
-
-    assert!(status.success(), "Command palette modal failed visual regression verification");
-}
-```
-
----
-
-## 7. License
-MIT
+## 8. License
+Licensed under the [Apache License, Version 2.0](LICENSE).
