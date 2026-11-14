@@ -56,8 +56,8 @@ DEFAULT_TERMINAL_QUESTIONS = {
         "type": "choice",
         "instructions": "Which colour palette is this terminal screenshot rendered in?",
         "criteria": {
-            "nord": "Slate grey-blue background",
-            "tron_grid": "Near-black navy background with cyan and orange accents",
+            "nord": "Charcoal slate-grey background (about #2E3440): visibly grey, clearly lighter than black, with muted pastel text",
+            "tron_grid": "Almost pure black navy background (about #020A12), much darker than charcoal grey, with bright cyan and orange accents",
         },
     },
     "style": {

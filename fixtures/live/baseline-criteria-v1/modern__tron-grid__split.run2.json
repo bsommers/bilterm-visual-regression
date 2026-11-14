@@ -1,0 +1,61 @@
+{
+  "model": "jev-1.14.0",
+  "answers": {
+    "session_drawer": {
+      "type": "box",
+      "box": {
+        "top": 0.05,
+        "bottom": 0.96,
+        "left": 0.02,
+        "right": 0.05
+      },
+      "confidence": 0.07
+    },
+    "status_bar": {
+      "type": "box",
+      "box": {
+        "top": 0.48,
+        "bottom": 0.98,
+        "left": 0.02,
+        "right": 0.51
+      },
+      "confidence": 0.19
+    },
+    "drawer_visible": {
+      "type": "noul",
+      "noul": 0.05
+    },
+    "layout": {
+      "type": "choice",
+      "choice": "side_by_side",
+      "confidence": 0.98,
+      "probabilities": {
+        "single_pane": 0.0,
+        "side_by_side": 0.99,
+        "stacked": 0.01
+      }
+    },
+    "theme": {
+      "type": "choice",
+      "choice": "tron_grid",
+      "confidence": 1.0,
+      "probabilities": {
+        "nord": 0.0,
+        "tron_grid": 1.0
+      }
+    },
+    "style": {
+      "type": "choice",
+      "choice": "modern",
+      "confidence": 0.88,
+      "probabilities": {
+        "classic": 0.06,
+        "modern": 0.94
+      }
+    }
+  },
+  "usage": {
+    "input_tokens": 1939,
+    "output_tokens": 158
+  }
+}
