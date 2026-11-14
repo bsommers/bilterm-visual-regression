@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import json
 import base64
+import uuid
 from typing import Dict, Any, Optional
 from pathlib import Path
 import httpx
@@ -44,8 +45,8 @@ class TypeSafeClient(BaseTypeSafeClient):
             )
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
-        # Unverified against the live service; override with TYPESAFE_ENDPOINT (e.g. /v1/systemone).
-        self.endpoint = endpoint or os.environ.get("TYPESAFE_ENDPOINT", "/v1/ask")
+        # Confirmed via https://api.typesafe.ai/openapi.json; override with TYPESAFE_ENDPOINT if it moves.
+        self.endpoint = endpoint or os.environ.get("TYPESAFE_ENDPOINT", "/v1/systemone")
 
     def _encode_image(self, image_path: Path | str) -> str:
         with open(image_path, "rb") as f:
@@ -61,17 +62,12 @@ class TypeSafeClient(BaseTypeSafeClient):
         frame_id = path.stem
         encoded_data = self._encode_image(path)
 
+        placeholder = uuid.uuid4().hex  # opaque key; replaced server-side by the image
         payload = {
             "model": model,
-            "state": {
-                "terminal_frame": frame_id,
-            },
+            "state": placeholder,
             "assets": {
-                frame_id: {
-                    "type": "image",
-                    "part": "screen_capture",
-                    "data": f"data:image/png;base64,{encoded_data}",
-                }
+                placeholder: {"type": "image", "format": "png", "data_base64": encoded_data}
             },
             "questions": questions,
         }

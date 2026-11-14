@@ -58,9 +58,9 @@ class SceneTruth:
         from .runner import DEFAULT_TERMINAL_QUESTIONS as Q
 
         answers: Dict[str, Any] = {
-            "layout": choice(self.layout, Q["layout"]["options"]),
-            "theme": choice(self.theme, Q["theme"]["options"]),
-            "style": choice(self.style, Q["style"]["options"]),
+            "layout": choice(self.layout, list(Q["layout"]["criteria"])),
+            "theme": choice(self.theme, list(Q["theme"]["criteria"])),
+            "style": choice(self.style, list(Q["style"]["criteria"])),
             "drawer_visible": {"probability": 0.96 if self.drawer_visible else 0.03, "confidence": 0.98},
             "status_bar": {"top": STATUS_BAR_TOP, "left": 0.0, "bottom": 1.0, "right": 1.0},
         }

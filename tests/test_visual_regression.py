@@ -257,3 +257,51 @@ class TestMockClientFallback:
     def test_unknown_name_is_an_error_not_a_guess(self):
         with pytest.raises(KeyError):
             MockTypeSafeClient().inspect_frame("whatever.png", DEFAULT_TERMINAL_QUESTIONS)
+
+
+class TestLiveClientWireFormat:
+    """Pins the request/response shapes to TypeSafe's published /v1/systemone schema (no network)."""
+
+    def test_request_and_response_shapes(self, monkeypatch):
+        import httpx
+        from bilterm_vr.client import TypeSafeClient
+
+        seen = {}
+
+        def fake_post(self, url, json=None, headers=None):
+            seen.update(url=url, json=json, headers=headers)
+            return httpx.Response(
+                200,
+                request=httpx.Request("POST", url),
+                json={
+                    "model": "jev-latest",
+                    "usage": {"input_tokens": 1, "output_tokens": 1},
+                    "answers": {
+                        "layout": {"type": "choice", "choice": "side_by_side", "confidence": 0.9,
+                                   "probabilities": {"single_pane": 0.05, "side_by_side": 0.9, "stacked": 0.05}},
+                        "drawer_visible": {"type": "noul", "noul": 0.97},
+                        "session_drawer": {"type": "box", "confidence": None,
+                                           "box": {"top": 0.0, "left": 0.0, "bottom": 1.0, "right": 0.3}},
+                        "status_bar": {"type": "box", "confidence": 0.9,
+                                       "box": {"top": 0.97, "left": 0.0, "bottom": 1.0, "right": 1.0}},
+                    },
+                },
+            )
+
+        monkeypatch.setattr(httpx.Client, "post", fake_post)
+        client = TypeSafeClient(api_key="test-key")
+        qs = {k: DEFAULT_TERMINAL_QUESTIONS[k] for k in ("layout", "drawer_visible", "session_drawer", "status_bar")}
+        res = client.inspect_frame(png("classic__nord__drawer"), qs)
+
+        assert seen["url"].endswith("/v1/systemone")
+        assert seen["headers"]["TypeSafe-Danger-Zone-Images"] == "true"
+        (placeholder, asset), = seen["json"]["assets"].items()
+        assert seen["json"]["state"] == placeholder
+        assert asset["type"] == "image" and asset["format"] == "png" and asset["data_base64"]
+        for q in seen["json"]["questions"].values():
+            assert q["type"] in {"box", "choice", "noul"}
+            if q["type"] == "choice":
+                assert q["criteria"] and "options" not in q
+        assert res.get_choice("layout").choice == "side_by_side"
+        assert res.get_noul("drawer_visible").probability == pytest.approx(0.97)
+        assert res.get_box("session_drawer").right == pytest.approx(0.3)

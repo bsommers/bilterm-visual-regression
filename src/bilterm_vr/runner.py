@@ -17,45 +17,56 @@ from .assertions import (
 )
 
 
+# Questions follow TypeSafe's /v1/systemone schema (https://api.typesafe.ai/openapi.json):
+# `choice` takes a `criteria` map of {choice name: when it applies}; `noul` takes optional true/false criteria.
+# The frame image is referenced in prose as "the image"; the client attaches it as an asset.
 DEFAULT_TERMINAL_QUESTIONS = {
     "session_drawer": {
         "type": "box",
         "instructions": (
-            "the sessions drawer in `terminal_frame`: a full-height side panel listing "
-            "SESSION entries. Answer an empty box if there is no such panel"
+            "The sessions drawer: a full-height side panel on the left listing SESSION entries. "
+            "If the image has no such panel, return an empty box"
         ),
     },
     "status_bar": {
         "type": "box",
-        "instructions": "the status bar: the single-row strip along the bottom edge of `terminal_frame`",
+        "instructions": "The status bar: the single-row strip along the bottom edge of the image",
     },
     "drawer_visible": {
         "type": "noul",
-        "instructions": "is the sessions drawer (a side panel listing SESSION entries) visible in `terminal_frame`?",
+        "instructions": "Is a sessions drawer visible in this terminal screenshot?",
+        "criteria": {
+            "true": "A narrow full-height side panel lists SESSION entries (for example SESSION [DEFAULT])",
+            "false": "There is no such side panel; the screen shows only terminal panes",
+        },
     },
     "layout": {
         "type": "choice",
-        "options": ["single_pane", "side_by_side", "stacked"],
         "instructions": (
-            "how are the terminal panes arranged? Ignore the sessions drawer; count only panes "
+            "How are the terminal panes arranged? Ignore the sessions drawer; count only panes "
             "that contain shell output"
         ),
+        "criteria": {
+            "single_pane": "One terminal pane fills the window",
+            "side_by_side": "Two terminal panes sit next to each other, left and right",
+            "stacked": "Two terminal panes sit one above the other",
+        },
     },
     "theme": {
         "type": "choice",
-        "options": ["nord", "tron_grid"],
-        "instructions": (
-            "which palette is rendered? nord = slate grey-blue background; "
-            "tron_grid = near-black navy background with cyan and orange accents"
-        ),
+        "instructions": "Which colour palette is this terminal screenshot rendered in?",
+        "criteria": {
+            "nord": "Slate grey-blue background",
+            "tron_grid": "Near-black navy background with cyan and orange accents",
+        },
     },
     "style": {
         "type": "choice",
-        "options": ["classic", "modern"],
-        "instructions": (
-            "which visual style? classic = bracketed pane titles like `[1] PANE #1` and a "
-            "`3270-OIA` status bar; modern = three-dot window header and a flat status bar"
-        ),
+        "instructions": "Which visual style is this terminal screenshot rendered in?",
+        "criteria": {
+            "classic": "Pane titles in brackets like `[1] PANE #1` and a `3270-OIA` status bar",
+            "modern": "A three-dot window header on each pane and a flat status bar",
+        },
     },
 }
 
