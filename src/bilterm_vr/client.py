@@ -35,6 +35,7 @@ class TypeSafeClient(BaseTypeSafeClient):
         api_key: Optional[str] = None,
         base_url: str = "https://api.typesafe.ai",
         timeout: float = 30.0,
+        endpoint: Optional[str] = None,
     ):
         self.api_key = api_key or os.environ.get("TYPESAFE_API_KEY", "")
         if not self.api_key:
@@ -43,6 +44,8 @@ class TypeSafeClient(BaseTypeSafeClient):
             )
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
+        # Unverified against the live service; override with TYPESAFE_ENDPOINT (e.g. /v1/systemone).
+        self.endpoint = endpoint or os.environ.get("TYPESAFE_ENDPOINT", "/v1/ask")
 
     def _encode_image(self, image_path: Path | str) -> str:
         with open(image_path, "rb") as f:
@@ -81,7 +84,7 @@ class TypeSafeClient(BaseTypeSafeClient):
 
         with httpx.Client(timeout=self.timeout) as client:
             resp = client.post(
-                f"{self.base_url}/v1/ask",
+                f"{self.base_url}{self.endpoint}",
                 json=payload,
                 headers=headers,
             )
